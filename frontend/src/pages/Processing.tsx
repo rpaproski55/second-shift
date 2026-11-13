@@ -1,0 +1,300 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, Loader2 } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { api } from "../api/client";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+
+/**
+ * Processing screen (Pass 3 spec 4.3 step 4, redesign spec 5.7): a
+ * vertical stepper with real counts while the check runs. The scan
+ * endpoint runs the job synchronously and stores it
+ * (GET /api/jobs/{id}); with ?job=<id> this page just polls that job.
+ * Otherwise it starts the scan itself (with ?capture=<id> for an
+ * uploaded walkthrough) and shows: frames from the capture's keyframe
+ * list, then the pipeline steps as the request progresses. Leaving is
+ * fine - the job is persisted server-side.
+ */
+
+type StepState = "done" | "active" | "todo";
+
+interface StepView {
+  label: string;
+  detail?: string;
+  state: StepState;
+}
+
+const PIPELINE_STEPS = [
+  "People blurred",
+  "Proposing hazards",
+  "SAM checks",
+  "Room sweep",
+  "Fix plans",
+  "After photos",
+];
+
+// The only failure text this screen may show when the server did not
+// send a plain message of its own - never raw request/error text.
+const GENERIC_SCAN_ERROR =
+  "The check stopped partway through. Tap Try again. Your video is saved - if it keeps failing, try a shorter video.";
+
+function plainJobError(text: string | null | undefined): string {
+  if (!text) return GENERIC_SCAN_ERROR;
+  if (/failed:|\b500\b|POST |GET |HTTP Error/i.test(text)) return GENERIC_SCAN_ERROR;
+  return text;
+}
+
+export default function Processing() {
+  const { id = "" } = useParams();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const jobId = params.get("job");
+  const captureId = params.get("capture");
+  const [frames, setFrames] = useState<{ total: number; usable: number } | null>(null);
+  const [phase, setPhase] = useState<"running" | "done" | "failed">("running");
+  const [jobDone, setJobDone] = useState<string[]>([]);
+  const [error, setError] = useState("");
+  const [elapsed, setElapsed] = useState(0);
+  const [reconnecting, setReconnecting] = useState(false);
+  const startedRef = useRef(false);
+
+  // Elapsed timer.
+  useEffect(() => {
+    if (phase !== "running") return;
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  // Real frame counts for an uploaded capture.
+  useEffect(() => {
+    if (!captureId) return;
+    api
+      .keyframes(captureId)
+      .then((r) =>
+        setFrames({
+          total: r.keyframes.length,
+          usable: r.keyframes.filter((k) => k.usable).length,
+        }),
+      )
+      .catch(() => setFrames(null));
+  }, [captureId]);
+
+  // Poll an existing job (deep link with ?job=).
+  useEffect(() => {
+    if (!jobId) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const job = await api.job(jobId);
+        if (stop) return;
+        setJobDone(job.completed_steps);
+        if (job.status === "done") {
+          setPhase("done");
+          navigate(`/checkup/${id}/report`);
+        } else if (job.status === "failed") {
+          setPhase("failed");
+          setError(plainJobError(job.error));
+        }
+      } catch {
+        if (!stop) setError("Could not read job status.");
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 1500);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
+  }, [jobId, id, navigate]);
+
+  // Start the scan when we arrived from the capture step. A failed
+  // scan returns job_status "failed" with a plain message from the
+  // server; a thrown error (network, unexpected status) shows only
+  // the generic plain message - never raw request text.
+  const runScan = useCallback(() => {
+    api
+      .scan(id, undefined, captureId ?? undefined)
+      .then((res) => {
+        if (res.job_status === "failed") {
+          setPhase("failed");
+          setError(res.error ?? GENERIC_SCAN_ERROR);
+          return;
+        }
+        setPhase("done");
+        navigate(`/checkup/${id}/report`);
+      })
+      .catch(() => {
+        // The long scan request can be cut by the connection (a phone
+        // tunnel drops requests after ~100 s) while the server keeps
+        // working. Don't call that a failure: wait for the report.
+        setReconnecting(true);
+        const started = Date.now();
+        const poll = () => {
+          api
+            .report(id)
+            .then(() => {
+              setReconnecting(false);
+              setPhase("done");
+              navigate(`/checkup/${id}/report`);
+            })
+            .catch(() => {
+              if (Date.now() - started > 12 * 60 * 1000) {
+                setReconnecting(false);
+                setPhase("failed");
+                setError(
+                  "This is taking longer than expected. The check may still finish - open Homes in a few minutes, or try again.",
+                );
+                return;
+              }
+              window.setTimeout(poll, 5000);
+            });
+        };
+        window.setTimeout(poll, 5000);
+      });
+  }, [id, captureId, navigate]);
+
+  useEffect(() => {
+    if (jobId || startedRef.current) return;
+    startedRef.current = true;
+    runScan();
+  }, [jobId, runScan]);
+
+  const tryAgain = () => {
+    setError("");
+    setElapsed(0);
+    setPhase("running");
+    runScan();
+  };
+
+  const scanStepDone = jobDone.includes("scan") || phase === "done";
+  const steps: StepView[] = [
+    {
+      label: "Frames extracted",
+      detail: frames
+        ? `${frames.total} frames, ${frames.usable} clear enough to check`
+        : captureId
+          ? "Reading the video..."
+          : "Demo home (recorded frames)",
+      state: frames || !captureId || phase !== "running" ? "done" : "active",
+    },
+    ...PIPELINE_STEPS.map((label, i): StepView => {
+      let state: StepState = "todo";
+      if (phase === "done") state = "done";
+      else if (label === "Fix plans" && jobDone.includes("fixes")) state = "done";
+      else if (label === "After photos" && jobDone.includes("visualize")) state = "done";
+      else if (i <= 3 && scanStepDone) state = "done";
+      else if (i <= 3 && phase === "running") state = "active";
+      else if (i === 4 && scanStepDone) state = "active";
+      return { label, state };
+    }),
+  ];
+
+  const mm = Math.floor(elapsed / 60);
+  const ss = String(elapsed % 60).padStart(2, "0");
+  // Estimated progress: the scan is one server step, so this is a time
+  // estimate from the video's frame count (measured: ~90 s + ~3.5 s per
+  // usable frame), held below 95% until the report is really ready.
+  const estSeconds = 90 + 3.5 * (frames?.usable ?? 40);
+  const pct =
+    phase === "done" ? 100 : Math.min(95, Math.round((elapsed / estSeconds) * 100));
+  const leftS = Math.max(0, Math.round(estSeconds - elapsed));
+  const leftText =
+    leftS > 60 ? `about ${Math.ceil(leftS / 60)} min left` : leftS > 0 ? "less than a minute left" : "finishing up";
+
+  return (
+    <main className="pt-1">
+      <h1 className="text-[24px] font-[650] leading-[30px] tracking-[-0.01em]">
+        Checking the home
+      </h1>
+      <p className="mt-2" role="status">
+        {phase === "running" && `Working... ${mm}:${ss} so far. A 1-minute video usually takes 3-7 minutes.`}
+        {phase === "running" && reconnecting && " The connection dropped, but the check is still running - waiting for the result."}
+        {phase === "done" && "Done - taking you to the report."}
+        {phase === "failed" && "Something went wrong."}
+      </p>
+      {phase !== "failed" && (
+        <div className="mt-4" aria-label="Progress">
+          <div className="flex items-baseline justify-between text-[14px]">
+            <span className="font-mono text-[22px] font-extrabold text-accent">{pct}%</span>
+            <span className="text-text-3">{phase === "done" ? "done" : `${leftText} (estimate)`}</span>
+          </div>
+          <div
+            className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-surface-3"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+          >
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-1000 ease-linear"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      )}
+      <div className="mt-5">
+        <Card>
+          <ol className="grid gap-4">
+            {steps.map((step) => (
+              <li key={step.label} className="flex items-center gap-3">
+                {step.state === "done" ? (
+                  <span
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ok"
+                    aria-hidden
+                  >
+                    <Check size={14} strokeWidth={1.75} className="text-text-inverse" />
+                  </span>
+                ) : step.state === "active" ? (
+                  <span
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-accent"
+                    aria-hidden
+                  >
+                    <Loader2 size={14} strokeWidth={1.75} className="animate-spin text-accent" />
+                  </span>
+                ) : (
+                  <span
+                    className="h-6 w-6 shrink-0 rounded-full border border-border-strong"
+                    aria-hidden
+                  />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="text-[15px] font-medium">{step.label}</span>
+                  {step.detail && (
+                    <span className="block text-[14px] text-text-2">{step.detail}</span>
+                  )}
+                </span>
+                {step.state === "active" && (
+                  <span className="shrink-0 font-mono text-[12.5px] tabular-nums text-text-3">
+                    Checking now...
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      </div>
+      {error && (
+        <p role="alert" className="mt-4 text-bad">
+          {error}
+        </p>
+      )}
+      {phase === "failed" && (
+        <div className="mt-4">
+          <Button variant="primary" onClick={tryAgain}>
+            Try again
+          </Button>
+        </div>
+      )}
+      {phase !== "failed" && (
+        <div className="mt-5">
+          <Card>
+            <p className="text-[14px] text-text-2">
+              You can leave this screen — the check keeps running, and the home
+              card will show the report when it is ready.
+            </p>
+          </Card>
+        </div>
+      )}
+    </main>
+  );
+}

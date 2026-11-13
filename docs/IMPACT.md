@@ -1,0 +1,42 @@
+# Impact - the only facts we may use
+
+Use ONLY these facts in UI, README, report copy and demo (spec section 2).
+
+| Fact | Source |
+|---|---|
+| More than 1 in 4 adults aged 65+ report a fall each year. | CDC, via National Safety Council Injury Facts |
+| 43,020 adults aged 65+ died from preventable falls in 2024; over 3.85 million were treated in emergency departments for fall injuries in 2023. | National Safety Council Injury Facts |
+| Reducing hazards in the home lowered the rate of falls by 26% (Cochrane review of 22 studies, 8,463 people, 2023). It works best with real assessment and support, not a tick-box checklist. | Cochrane (Clemson et al., 2023) |
+| Unattended cooking is the leading factor in home cooking fires and cooking-fire deaths. | NFPA |
+| Babyproofing statistics | TODO(STAT) - team will add from CPSC / AAP. Visible placeholder - do not invent numbers. |
+
+Sources:
+- NSC Injury Facts - Older adult falls: https://injuryfacts.nsc.org/home-and-community/safety-topics/older-adult-falls/
+- Cochrane review summary (Clemson et al., 2023): https://www.eurekalert.org/news-releases/981932
+- NFPA Home Cooking Fires (2023)
+
+## Fire safety
+| Fact | Source |
+|---|---|
+| TODO(STAT): smoke-alarm effectiveness figure — team to source from NFPA before any claim ships. | TODO(STAT) |
+| TODO(STAT): cooking-fire share and CO figures to be sourced from NFPA / USFA by the team. | TODO(STAT) |
+
+## Earthquake readiness
+TODO(STAT): no sourced impact facts yet. Team to source from Ready.gov / USGS before any claim ships.
+
+## Pet safety
+TODO(STAT): no sourced impact facts yet. Team to source from ASPCA Animal Poison Control before any claim ships (every plant and food claim must be verified).
+
+## Home from hospital
+TODO(STAT): no sourced impact facts yet. Team to source from discharge-planning / OT literature before any claim ships.
+
+## Mosquito breeding sites
+| Fact | Source |
+|---|---|
+| WHO received reports of 14.4 million dengue cases and 11,201 deaths in 2024, the highest global burden on record. | WHO dengue reporting for 2024 (figure provided by the team; TODO(SOURCE): link the exact WHO page before release) |
+
+## Workplace safety
+- BLS 2024 (private industry): 2,488,400 recordable cases; 479,480 days-away cases from falls, slips or trips; 844 fatal falls, slips or trips (all sectors). (Figures as supplied in the team's Pass 3 brief; TODO(SOURCE): link the BLS release before public use.)
+
+## Car seat checks
+- NHTSA's National Child Restraint Use Special Study found about 49% of child restraints misused. Top misuses: incorrect recline for rear-facing infants (42% of rear-facing misuse) and loose installation (47% of forward-facing misuse). (As supplied in the team's Pass 3 brief; TODO(SOURCE): link the NCRUSS report before public use.)

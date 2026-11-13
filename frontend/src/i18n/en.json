@@ -1,0 +1,12 @@
+{
+  "footer_disclaimer": "SecondShift is a screening tool, not a medical device or an emergency alarm, and it can miss things.",
+  "consent_intro": "Before you film: the person who lives here should know and agree. Please don't film anyone in the bathroom or while undressing.",
+  "cannot_tell": "I couldn't check this - <reason>. That's on purpose: I'd rather say 'I don't know' than guess.",
+  "refusal_lead_in": "A camera can't see that. Here's what I can check instead:",
+  "visualization_watermark": "Visualization - not a photo",
+  "data_note": "This runs on Meta's free hackathon credits; Meta says content sent on free credits may be used for product improvement. We only process footage from people who agreed to that. Raw video is deleted after processing unless you choose to keep it.",
+  "watch_banner": "Watching: <spot>. Only this area is checked. No video is saved.",
+  "check_a_home": "Check a home",
+  "watch_one_spot": "Watch one spot",
+  "confirmed_by_sam": "Found by SAM (box)"
+}

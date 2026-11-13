@@ -1,0 +1,67 @@
+.PHONY: setup doctor dev dev-backend dev-frontend phone check check-backend check-frontend test demo demo-check demo-reset eval smoke-meta types
+
+VENV=.venv
+PY=$(VENV)/bin/python
+PIP=$(VENV)/bin/pip
+
+setup:
+	python3 -m venv $(VENV)
+	$(PIP) install -q -e ".[dev,eval]"
+	cd frontend && npm install
+
+doctor:
+	@$(PY) scripts/doctor.py 2>/dev/null || python3 scripts/doctor.py
+
+dev:
+	@echo "Backend: http://127.0.0.1:8000  Frontend: http://127.0.0.1:5173"
+	@( $(PY) -m uvicorn secondshift.main:app --app-dir backend --reload --port 8000 & echo $$! > /tmp/ss-backend.pid; cd frontend && npm run dev & echo $$! > /tmp/ss-frontend.pid; wait )
+
+dev-backend:
+	$(PY) -m uvicorn secondshift.main:app --app-dir backend --reload --port 8000
+
+dev-https:
+	sh scripts/dev_https.sh
+
+dev-frontend:
+	cd frontend && npm run dev
+
+phone:
+	$(PY) scripts/phone.py $(if $(TUNNEL),--tunnel,)
+
+check: check-backend check-frontend
+
+check-backend:
+	$(VENV)/bin/ruff check backend tests scripts eval
+	$(VENV)/bin/ruff format --check backend tests scripts eval || true
+	$(VENV)/bin/mypy backend/secondshift
+	$(PY) -m pytest -q
+
+check-frontend:
+	cd frontend && npx tsc --noEmit && npx eslint src
+
+test:
+	$(PY) -m pytest -q
+
+demo:
+	$(PY) scripts/demo.py
+
+live:
+	$(PY) scripts/demo.py --live
+
+demo-check:
+	$(PY) scripts/demo_check.py
+
+demo-reset:
+	$(PY) scripts/demo_reset.py
+
+eval:
+	$(PY) eval/run_eval.py --help
+
+smoke-meta:
+	$(PY) scripts/smoke_meta.py
+
+types:
+	$(PY) scripts/generate_types.py
+
+new-pack:
+	$(PY) scripts/new_pack.py NAME=$(NAME)

@@ -1,0 +1,63 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base (redesign spec 2.3): rem-based so the Large text toggle scales
+   everything; tap targets come from components, not a global rule. */
+html {
+  font-size: 16px;
+}
+html.large-text {
+  font-size: 18.5px;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  letter-spacing: -0.003em;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--r-btn);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Guided re-film: a hazard resolved by a follow-up clip animates in
+   when the merged report lands. */
+@keyframes refilm-in {
+  0% {
+    background-color: var(--accent-bg);
+    transform: translateY(8px);
+    opacity: 0.3;
+  }
+  100% {
+    background-color: var(--surface);
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.refilm-flash {
+  animation: refilm-in 1.4s ease-out 2;
+}
+
+/* Data figures stay aligned without a terminal look. */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+h1, h2, h3 {
+  letter-spacing: -0.015em;
+}
